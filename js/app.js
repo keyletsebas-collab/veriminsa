@@ -284,10 +284,10 @@ async function toggleUserBlock(userId, isCurrentlyBlocked, userLabel) {
     }
 }
 
-// Remove access completely by deleting the user profile row in Supabase
+// Remove access by deactivating/blocking the user so they can be reactivated later
 async function deleteUserAccess(userId, userLabel) {
-    const confirmation = confirm(`⚠️ ADVERTENCIA CRÍTICA: ¿Estás seguro de que deseas QUITAR EL ACCESO de forma permanente a "${userLabel}"?\n\n` +
-        "Esta acción ELIMINARÁ por completo el registro de la cuenta en la base de datos de Supabase. El usuario perderá su cuenta y no podrá recuperarla."
+    const confirmation = confirm(`¿Estás seguro de que deseas QUITAR EL ACCESO a "${userLabel}"?\n\n` +
+        "La cuenta quedará inactiva y no podrá ingresar a la aplicación. Podrás reactivar al usuario en cualquier momento desde este panel."
     );
 
     if (!confirmation) return;
@@ -295,21 +295,24 @@ async function deleteUserAccess(userId, userLabel) {
     try {
         const { error } = await supabaseClient
             .from('profiles')
-            .delete()
+            .update({ family_id: 'BLOCKED' })
             .eq('id', userId);
 
         if (error) throw error;
 
-        // Remove from local cache
-        globalAccounts = globalAccounts.filter(acc => acc.id !== userId);
+        // Update local cache
+        const index = globalAccounts.findIndex(acc => acc.id === userId);
+        if (index !== -1) {
+            globalAccounts[index].family_id = 'BLOCKED';
+        }
 
         updateMetrics();
         renderAccounts();
 
-        showToast(`🗑️ La cuenta de ${userLabel} fue eliminada permanentemente.`, 'error');
+        showToast(`🗑️ Se ha quitado el acceso a ${userLabel}. La cuenta está inactiva y puede ser reactivada.`, 'error');
     } catch (err) {
-        console.error('Error deleting user:', err);
-        showToast('❌ Error al eliminar perfil de la base de datos.', 'error');
+        console.error('Error removing access:', err);
+        showToast('❌ Error al quitar el acceso en Supabase.', 'error');
     }
 }
 
