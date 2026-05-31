@@ -632,6 +632,19 @@ tr:hover td {
     box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
 }
 
+.btn-delete-permanently {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete-permanently:hover {
+    background: #b91c1c;
+    color: white;
+    border-color: #b91c1c;
+    box-shadow: 0 0 15px rgba(185, 28, 28, 0.6);
+}
+
 /* Empty State / Loading State Styling */
 .table-state-wrapper {
     padding: 60px 20px;

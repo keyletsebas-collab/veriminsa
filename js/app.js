@@ -214,6 +214,9 @@ function renderAccounts() {
                     <button class="btn-action btn-remove-access" onclick="deleteUserAccess('${acc.id}', '${acc.name || acc.email}')">
                         🗑️ Quitar Acceso
                     </button>
+                    <button class="btn-action btn-delete-permanently" onclick="deleteUserPermanently('${acc.id}', '${acc.name || acc.email}')">
+                        ❌ Eliminar Permanentemente
+                    </button>
                 </div>
             </td>
         `;
@@ -340,4 +343,33 @@ function setFilter(filter) {
     }
 
     renderAccounts();
+}
+
+// Delete account permanently from Supabase
+async function deleteUserPermanently(userId, userLabel) {
+    const confirmation = confirm(`¿Estás seguro de que deseas ELIMINAR PERMANENTEMENTE la cuenta de "${userLabel}"?\n\n` +
+        "Esta acción es irreversible y eliminará todos los datos del usuario de la base de datos."
+    );
+
+    if (!confirmation) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+
+        if (error) throw error;
+
+        // Remove from local cache
+        globalAccounts = globalAccounts.filter(acc => acc.id !== userId);
+
+        updateMetrics();
+        renderAccounts();
+
+        showToast(`❌ Se ha eliminado permanentemente la cuenta de ${userLabel}.`, 'success');
+    } catch (err) {
+        console.error('Error deleting account permanently:', err);
+        showToast('❌ Error al eliminar la cuenta en Supabase.', 'error');
+    }
 }
