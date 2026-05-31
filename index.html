@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veriminsa – Panel de Administración</title>
+    
+    <!-- Premium SEO Meta Tags -->
+    <meta name="description" content="Veriminsa es la consola administrativa oficial de Reciminsa App para el control inteligente de accesos y la auditoría de seguridad en tiempo real.">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <!-- Preloading and Styling -->
+    <link rel="icon" type="image/png" href="../icon-192.png">
+    <link rel="stylesheet" href="css/index.css">
+    
+    <!-- Supabase JS Library CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- Main Glassmorphic Container -->
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header>
+            <div class="logo-section">
+                <h1>Veriminsa <span>ADMIN</span></h1>
+                <p>Gestión centralizada de cuentas y control de accesos para Reciminsa App</p>
+            </div>
+            <div class="actions-header">
+                <button class="btn btn-secondary" onclick="fetchAccounts()">
+                    🔄 Actualizar Datos
+                </button>
+                <a href="../index.html" class="btn btn-primary">
+                    🚪 Volver a Reciminsa App
+                </a>
+            </div>
+        </header>
+
+        <!-- Stats Metric Grid -->
+        <section class="metrics-grid">
+            <div class="metric-card metric-card--total">
+                <div class="metric-info">
+                    <h3>Total Cuentas</h3>
+                    <div class="metric-value" id="metric-total">0</div>
+                </div>
+                <div class="metric-icon">👥</div>
+            </div>
+            <div class="metric-card metric-card--active">
+                <div class="metric-info">
+                    <h3>Cuentas Activas</h3>
+                    <div class="metric-value" id="metric-active">0</div>
+                </div>
+                <div class="metric-icon">⚡</div>
+            </div>
+            <div class="metric-card metric-card--blocked">
+                <div class="metric-info">
+                    <h3>Cuentas Bloqueadas</h3>
+                    <div class="metric-value" id="metric-blocked">0</div>
+                </div>
+                <div class="metric-icon">🚫</div>
+            </div>
+        </section>
+
+        <!-- Search and Filter Panel -->
+        <section class="control-bar">
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" class="search-input" placeholder="Buscar por nombre o correo electrónico..." oninput="handleSearchFilter()">
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab filter-tab--active" id="filter-all" onclick="setFilter('all')">Todos</button>
+                <button class="filter-tab" id="filter-active" onclick="setFilter('active')">Activos</button>
+                <button class="filter-tab" id="filter-blocked" onclick="setFilter('blocked')">Bloqueados</button>
+            </div>
+        </section>
+
+        <!-- Main User Table Container -->
+        <main class="accounts-container">
+            <div class="table-responsive">
+                <table id="accounts-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Correo Electrónico</th>
+                            <th>Contraseña Real</th>
+                            <th>Estado</th>
+                            <th>Activación</th>
+                            <th>Acciones de Control</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accounts-tbody">
+                        <!-- Loading State -->
+                        <tr>
+                            <td colspan="6">
+                                <div class="table-state-wrapper">
+                                    <div class="loader-spinner"></div>
+                                    <p>Cargando registros de usuarios en tiempo real...</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+        
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container"></div>
+
+    <!-- Application JavaScript Logic -->
+    <script src="js/supabase-config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
