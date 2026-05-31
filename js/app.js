@@ -368,6 +368,7 @@ async function deleteUserPermanently(userId, userLabel) {
         showToast(`❌ Se ha eliminado permanentemente la cuenta de ${userLabel}.`, 'success');
     } catch (err) {
         console.error('Error deleting account permanently:', err);
-        showToast('❌ Error al eliminar la cuenta en Supabase.', 'error');
+        const errMsg = err.message || err.details || JSON.stringify(err);
+        showToast(`❌ Error: ${errMsg}`, 'error');
     }
 }
