@@ -355,7 +355,9 @@ async function deleteUserPermanently(userId, userLabel) {
 
     try {
         const { error } = await supabaseClient
-            .rpc('delete_user_by_id', { user_id: userId });
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
 
         if (error) throw error;
 
@@ -365,7 +367,7 @@ async function deleteUserPermanently(userId, userLabel) {
         updateMetrics();
         renderAccounts();
 
-        showToast(`❌ Se ha eliminado permanentemente la cuenta de ${userLabel}.`, 'success');
+        showToast(`✅ Cuenta de ${userLabel} eliminada permanentemente.`, 'success');
     } catch (err) {
         console.error('Error deleting account permanently:', err);
         const errMsg = err.message || err.details || JSON.stringify(err);
