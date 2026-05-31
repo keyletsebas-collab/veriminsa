@@ -348,16 +348,14 @@ function setFilter(filter) {
 // Delete account permanently from Supabase
 async function deleteUserPermanently(userId, userLabel) {
     const confirmation = confirm(`¿Estás seguro de que deseas ELIMINAR PERMANENTEMENTE la cuenta de "${userLabel}"?\n\n` +
-        "Esta acción es irreversible y eliminará todos los datos del usuario de la base de datos."
+        "Esta acción es irreversible y eliminará por completo al usuario de la autenticación de Supabase y de los perfiles."
     );
 
     if (!confirmation) return;
 
     try {
         const { error } = await supabaseClient
-            .from('profiles')
-            .delete()
-            .eq('id', userId);
+            .rpc('delete_user_by_id', { user_id: userId });
 
         if (error) throw error;
 
