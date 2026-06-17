@@ -2,8 +2,8 @@
    SUPABASE-CONFIG.JS – Client Initialization
    ============================================= */
 
-const supabaseUrl = "https://qcudymexssvfdeppkhjs.supabase.co";
-const supabaseKey = "sb_publishable_y1Wj-5PSHOIN-_pIvX5Xeg_6SjpvjpF";
+const supabaseUrl = "https://wkqgsprgztqxmovojewu.supabase.co";
+const supabaseKey = "sb_publishable_Mq6mEx5qSIxv6mvt_DNaEw_NTeUIFPv";
 
 let supabaseClient = null;
 let isSupabaseActive = false;
