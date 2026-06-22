@@ -19,6 +19,9 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }, 200);
     }
+    
+    // Render promo codes list on boot
+    renderPromoCodes();
 });
 
 // Toast system for administrative feedback
@@ -35,7 +38,18 @@ function showToast(message, type = 'success') {
         if (toast.parentNode) {
             toast.parentNode.removeChild(toast);
         }
-    }, 4000);
+    }, 12000);
+}
+
+function copyToClipboard(text) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('📋 Código copiado al portapapeles: ' + text, 'success');
+        });
+    } else {
+        // Fallback for older browsers
+        showToast('📋 Código generado: ' + text, 'success');
+    }
 }
 
 // Fetch all registered user profiles from Supabase profiles table
@@ -102,8 +116,19 @@ function updateMetrics() {
 // Safe Base64 decoding with graceful fallback
 function decodePassword(encoded) {
     if (!encoded) return 'Sin clave';
+    
+    // Check if it's a SHA-256 hash (64 hex characters)
+    if (encoded.length === 64 && /^[0-9a-f]{64}$/i.test(encoded)) {
+        return '🔒 PROTEGIDA (SHA-256)';
+    }
+
     try {
-        return atob(encoded);
+        const decoded = atob(encoded);
+        // Ensure it's mostly printable characters to prevent binary gibberish
+        if (/^[\x20-\x7E]*$/.test(decoded)) {
+            return decoded;
+        }
+        return '🔒 PROTEGIDA';
     } catch (e) {
         // If it's not base64 or failed to decode, display original raw string
         return encoded;
@@ -172,17 +197,58 @@ function renderAccounts() {
     filtered.forEach(acc => {
         const isBlocked = acc.family_id === 'BLOCKED';
         const decodedPw = decodePassword(acc.password);
-        const maskedPw = '•'.repeat(Math.max(6, decodedPw.length));
         
+        // Parse serialized name if present
+        const parts = (acc.name || '').split(' | ');
+        const cleanName = parts[0] || 'Usuario';
+        let subPlan = 'none';
+        let subExp = 'N/A';
+        let isExpired = false;
+        
+        parts.forEach(p => {
+            if (p.startsWith('SUB:')) subPlan = p.substring(4);
+            if (p.startsWith('EXP:')) {
+                const expVal = p.substring(4);
+                if (expVal === 'lifetime') {
+                    subExp = 'De por vida';
+                } else {
+                    const t = parseInt(expVal);
+                    if (isNaN(t) || t === 0) {
+                        subExp = 'Expirado';
+                        isExpired = true;
+                    } else {
+                        subExp = new Date(t).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        if (t < Date.now()) {
+                            isExpired = true;
+                            subExp = 'Expirado (' + subExp + ')';
+                        }
+                    }
+                }
+            }
+        });
+
+        const planTranslations = {
+            mensual: 'Mensual 30d',
+            anual: 'Anual 1 año',
+            lifetime: 'De Por Vida',
+            trial_10d: 'Prueba 10d',
+            none: 'Ninguno'
+        };
+        const translatedPlan = planTranslations[subPlan] || subPlan;
+
         const tr = document.createElement('tr');
         tr.id = `row-${acc.id}`;
         
         tr.innerHTML = `
             <td>
                 <div class="user-profile">
-                    <div class="user-avatar">${(acc.name || 'U')[0].toUpperCase()}</div>
+                    <div class="user-avatar">${cleanName[0].toUpperCase()}</div>
                     <div class="user-info">
-                        <div class="user-name">${acc.name || 'Usuario'}</div>
+                        <div class="user-name-wrapper" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span class="user-name">${cleanName}</span>
+                            <span class="user-plan-badge user-plan-badge--${subPlan}">${translatedPlan}</span>
+                            <span class="user-exp-badge ${isExpired ? 'user-exp-badge--expired' : ''}">📅 ${subExp}</span>
+                        </div>
                         <div class="user-id">ID: ${acc.id}</div>
                     </div>
                 </div>
@@ -192,8 +258,8 @@ function renderAccounts() {
             </td>
             <td>
                 <div class="password-cell">
-                    <span class="password-text" id="pw-text-${acc.id}">${maskedPw}</span>
-                    <button class="btn-toggle-pw" onclick="togglePasswordVisibility('${acc.id}', '${btoa(decodedPw)}')" title="Revelar Contraseña">
+                    <span class="password-text" id="pw-text-${acc.id}" style="color: #38bdf8; font-weight: bold;">${decodedPw}</span>
+                    <button class="btn-toggle-pw" onclick="togglePasswordVisibility('${acc.id}', '${encodeURIComponent(decodedPw)}')" title="Revelar/Ocultar Contraseña">
                         👁️
                     </button>
                 </div>
@@ -225,11 +291,11 @@ function renderAccounts() {
 }
 
 // Toggle password visibility (reveal plain-text)
-function togglePasswordVisibility(userId, base64Password) {
+function togglePasswordVisibility(userId, encodedPassword) {
     const pwTextEl = document.getElementById(`pw-text-${userId}`);
     if (!pwTextEl) return;
 
-    const realPassword = atob(base64Password);
+    const realPassword = decodeURIComponent(encodedPassword);
     const isMasked = pwTextEl.textContent.includes('•');
 
     if (isMasked) {
@@ -373,4 +439,148 @@ async function deleteUserPermanently(userId, userLabel) {
         const errMsg = err.message || err.details || JSON.stringify(err);
         showToast(`❌ Error: ${errMsg}`, 'error');
     }
+}
+
+// ==========================================================================
+// PROMO CODES MANAGEMENT (DISCOUNTS & TRIALS)
+// ==========================================================================
+
+function toggleCodeTypeFields() {
+    const type = document.getElementById('code-type-select').value;
+    const discountGroup = document.getElementById('code-discount-group');
+
+    if (type === 'discount') {
+        discountGroup.style.display = 'flex';
+    } else {
+        discountGroup.style.display = 'none';
+    }
+}
+
+function getPromoCodes() {
+    const local = localStorage.getItem('recim_promo_codes');
+    if (local) return JSON.parse(local);
+
+    // Default built-in codes
+    const defaults = [
+        { id: 'c1', code: 'PROMO-DEFAULT-30', type: 'trial', value: 30, used: false, maxUses: 1 },
+        { id: 'c2', code: 'PROMO-DEFAULT-50', type: 'discount', value: 50, used: false, maxUses: 1 },
+        { id: 'c3', code: 'PROMO-LIFE-100', type: 'trial', value: 99999, used: false, maxUses: 1 }
+    ];
+    localStorage.setItem('recim_promo_codes', JSON.stringify(defaults));
+    return defaults;
+}
+
+function savePromoCodes(codes) {
+    localStorage.setItem('recim_promo_codes', JSON.stringify(codes));
+}
+
+function renderPromoCodes() {
+    const tbody = document.getElementById('codes-tbody');
+    if (!tbody) return;
+
+    const codes = getPromoCodes();
+    if (codes.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted); padding: 20px 0;">
+                    Sin códigos promocionales creados.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = '';
+    codes.forEach(c => {
+        const badgeClass = c.type === 'trial' ? 'code-badge--trial' : 'code-badge--discount';
+        const typeLabel = c.type === 'trial' ? 'Prueba' : 'Descuento';
+        const valLabel = c.type === 'trial' 
+            ? (c.value >= 9999 ? 'De Por Vida' : `${c.value} Días`) 
+            : `${c.value}%`;
+
+        // Normalize used property in case of older codes
+        const isUsed = c.used === true;
+        const statusLabel = isUsed ? '<span style="color:#ef4444; font-weight:bold; font-size: 10px;">🔴 USADO</span>' : '<span style="color:#10b981; font-weight:bold; font-size: 10px;">🟢 DISPONIBLE</span>';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div style="font-family:monospace; font-weight:700; color:white; font-size:14px; letter-spacing:1px; cursor: pointer; transition: 0.2s; display:inline-block;" onclick="copyToClipboard('${c.code}')" title="Haz clic para copiar">${c.code} 📋</div>
+                <div style="margin-top: 4px;">${statusLabel}</div>
+            </td>
+            <td><span class="code-badge ${badgeClass}">${typeLabel}</span></td>
+            <td><strong>${valLabel}</strong></td>
+            <td>
+                <button class="btn-delete-code" onclick="deletePromoCode('${c.id}', '${c.code}')" title="Eliminar Código">
+                    🗑️
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function generatePromoCode() {
+    const typeSelect = document.getElementById('code-type-select');
+    const discountInput = document.getElementById('code-discount-input');
+
+    const typeSelection = typeSelect.value;
+    let actualType = 'trial';
+    let value = null;
+    let prefix = 'CODE';
+
+    if (typeSelection === 'discount') {
+        actualType = 'discount';
+        value = parseInt(discountInput.value);
+        if (isNaN(value) || value <= 0 || value > 100) {
+            showToast('❌ Por favor introduce un porcentaje de descuento válido (1-100).', 'error');
+            return;
+        }
+        prefix = `DESC${value}`;
+    } else if (typeSelection === 'trial30') {
+        actualType = 'trial';
+        value = 30;
+        prefix = 'FREE30';
+    } else if (typeSelection === 'lifetime') {
+        actualType = 'trial';
+        value = 99999;
+        prefix = 'LIFE';
+    }
+
+    // Generate secure random string
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let randomString = '';
+    for(let i = 0; i < 8; i++) {
+        randomString += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const rawCode = `${prefix}-${randomString}`;
+
+    const codes = getPromoCodes();
+
+    const newCode = {
+        id: `code-${Date.now()}`,
+        code: rawCode,
+        type: actualType,
+        value: value,
+        used: false,
+        maxUses: 1
+    };
+
+    codes.push(newCode);
+    savePromoCodes(codes);
+    renderPromoCodes();
+
+    showToast(`✅ Código ${rawCode} generado con éxito.`, 'success');
+}
+
+function deletePromoCode(id, code) {
+    const confirmation = confirm(`¿Estás seguro de que deseas eliminar el código "${code}"?`);
+    if (!confirmation) return;
+
+    let codes = getPromoCodes();
+    codes = codes.filter(c => c.id !== id);
+    savePromoCodes(codes);
+    renderPromoCodes();
+
+    showToast(`🗑️ Código ${code} eliminado.`, 'error');
 }
